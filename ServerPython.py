@@ -1,5 +1,7 @@
 from Tkinter import *
 from ttk import *
+import pygame
+from pygame.locals import *
 import socket
 import thread
 import cv2
@@ -17,25 +19,25 @@ class ChatClient(Frame):
     self.counter = 0
 
   def initUI(self):
-    self.root.title("P2P Chat - SAMSUNG CAMPUS")
+    self.root.title("SAMSUNG CAMPUS")
     ScreenSizeX = self.root.winfo_screenwidth()
     ScreenSizeY = self.root.winfo_screenheight()
-    self.FrameSizeX  = 800
+    self.FrameSizeX  = 900
     self.FrameSizeY  = 650
     FramePosX   = (ScreenSizeX - self.FrameSizeX)/2
     FramePosY   = (ScreenSizeY - self.FrameSizeY)/2
     self.root.geometry("%sx%s+%s+%s" % (self.FrameSizeX,self.FrameSizeY,FramePosX,FramePosY))
-    self.root.resizable(width=False, height=True)
-    
+    self.root.resizable(width=True, height=True)
+
     padX = 10
     padY = 10
     parentFrame = Frame(self.root)
     parentFrame.grid(padx=padX, pady=padY, stick=E+W+N+S)
     
     ipGroup = Frame(parentFrame)
-    serverLabel = Label(ipGroup, text="Set: ")
+    serverLabel = Label(ipGroup, text="Parametre: ")
     self.nameVar = StringVar()
-    self.nameVar.set("User")
+    self.nameVar.set("Moi")
     nameField = Entry(ipGroup, width=10, textvariable=self.nameVar)
     self.serverIPVar = StringVar()
     self.serverIPVar.set("127.0.0.1")
@@ -43,15 +45,15 @@ class ChatClient(Frame):
     self.serverPortVar = StringVar()
     self.serverPortVar.set("8090")
     serverPortField = Entry(ipGroup, width=5, textvariable=self.serverPortVar)
-    serverSetButton = Button(ipGroup, text="Set", width=10, command=self.handleSetServer)
-    addClientLabel = Label(ipGroup, text="Add friend: ")
+    serverSetButton = Button(ipGroup, text="Parametre", width=10, command=self.handleSetServer)
+    addClientLabel = Label(ipGroup, text="Ajout Amis: ")
     self.clientIPVar = StringVar()
     self.clientIPVar.set("127.0.0.1")
     clientIPField = Entry(ipGroup, width=15, textvariable=self.clientIPVar)
     self.clientPortVar = StringVar()
-    self.clientPortVar.set("8091")
+    self.clientPortVar.set("8090")
     clientPortField = Entry(ipGroup, width=5, textvariable=self.clientPortVar)
-    clientSetButton = Button(ipGroup, text="Add", width=10, command=self.handleAddClient)
+    clientSetButton = Button(ipGroup, text="Ajout", width=10, command=self.handleAddClient)
     serverLabel.grid(row=0, column=0)
     nameField.grid(row=0, column=1)
     serverIPField.grid(row=0, column=2)
@@ -71,23 +73,23 @@ class ChatClient(Frame):
     writeChatGroup = Frame(parentFrame)
     self.chatVar = StringVar()
     self.chatField = Entry(writeChatGroup, width=80, textvariable=self.chatVar)
-    sendChatButton = Button(writeChatGroup, text="Send", width=10, command=self.handleSendChat)
+    sendChatButton = Button(writeChatGroup, text="Envoyer", width=10, command=self.handleSendChat)
+    sendCamButton = Button(writeChatGroup, text="Webcam", width=10, command=self.loadWebcam)
     self.chatField.grid(row=0, column=0, sticky=W)
     sendChatButton.grid(row=0, column=1, padx=5)
+    sendCamButton.grid(row=0, column=3, padx=5)
 
     readWebCam = Frame(parentFrame)
     self.cam = Listbox(readWebCam, bg="blue", width=150, height=150)
     self.cam.grid(row=0, column=2, padx=5)
 
     self.statusLabel = Label(parentFrame)
-
-    bottomLabel = Label(parentFrame, text="Created by MASSY DYNAMIC")
     
     ipGroup.grid(row=0, column=0)
     readChatGroup.grid(row=1, column=0)
     writeChatGroup.grid(row=2, column=0, pady=10)
     self.statusLabel.grid(row=3, column=0)
-    bottomLabel.grid(row=4, column=0, pady=10)
+
     
   def handleSetServer(self):
     if self.serverSoc != None:
@@ -99,36 +101,36 @@ class ChatClient(Frame):
         self.serverSoc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serverSoc.bind(serveraddr)
         self.serverSoc.listen(5)
-        self.setStatus("Server listening on %s:%s" % serveraddr)
+        self.setStatus("Server en ecoute %s:%s" % serveraddr)
         thread.start_new_thread(self.listenClients,())
         self.serverStatus = 1
         self.name = self.nameVar.get().replace(' ',' ')
         if self.name == '':
             self.name = "%s:%s" % serveraddr
     except:
-        self.setStatus("Error setting up server")
+        self.setStatus("Erreur du parametrage serveur")
     
   def listenClients(self):
     while 1:
       clientsoc, clientaddr = self.serverSoc.accept()
-      self.setStatus("Client connected from %s:%s" % clientaddr)
+      self.setStatus("Client connecte a %s:%s" % clientaddr)
       self.addClient(clientsoc, clientaddr)
       thread.start_new_thread(self.handleClientMessages, (clientsoc, clientaddr))
     self.serverSoc.close()
   
   def handleAddClient(self):
     if self.serverStatus == 0:
-      self.setStatus("Set server address first")
+      self.setStatus("Parametre adresse ip/port du server")
       return
     clientaddr = (self.clientIPVar.get().replace(' ',''), int(self.clientPortVar.get().replace(' ','')))
     try:
         clientsoc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         clientsoc.connect(clientaddr)
-        self.setStatus("Connected to client on %s:%s" % clientaddr)
+        self.setStatus("Client connecte a %s:%s" % clientaddr)
         self.addClient(clientsoc, clientaddr)
         thread.start_new_thread(self.handleClientMessages, (clientsoc, clientaddr))
     except:
-        self.setStatus("Error connecting to client")
+        self.setStatus("Erreur du parametrage client")
 
   def handleClientMessages(self, clientsoc, clientaddr):
     while 1:
@@ -150,7 +152,14 @@ class ChatClient(Frame):
     msg = self.chatVar.get().replace(' ','')
     if msg == '':
         return
-    self.addChat("user", msg)
+    self.addChat("Moi", msg)
+
+    pygame.mixer.pre_init(44100, -16, 2, 2048) # setup mixer to avoid sound lag
+    pygame.init()
+    pygame.mixer.init()
+    pygame.mixer.music.load('son.mp3')
+    pygame.mixer.music.play()
+
     for client in self.allClients.keys():
       client.send(msg)
   
@@ -174,28 +183,35 @@ class ChatClient(Frame):
     self.statusLabel.config(text=msg)
     print msg
 
-  def webcam():
-    cv2.namedWindow("webcam online")
+  def loadWebcam(self):
+    cv2.namedWindow("webcam Interface")
     vc = cv2.VideoCapture(0)
-
     if vc.isOpened():
+        rval, frame = vc.read()
+        cv2.imshow("webcam Interface", frame)
         rval, frame = vc.read()
     else:
         rval = False
 
     while rval:
-        cv2.imshow("webcam online", frame)
+        cv2.imshow("webcam Interface", frame)
         rval, frame = vc.read()
         key = cv2.waitKey(20)
         if key == 27:
             break
-    cv2.destroyWindow("webcam online")
+    cv2.destroyWindow("webcam Interface")
 
 def main():  
-  root = Tk()
-  app = ChatClient(root)
-  root.mainloop()
-  root.webcam()
+    root = Tk()
+    app = ChatClient(root)
+    root.mainloop()
+
+pygame.mixer.pre_init(44100, -16, 2, 2048)
+pygame.init()
+pygame.mixer.init()
+pygame.mixer.music.load('intro.mp3')
+pygame.mixer.music.play()
+
 
 if __name__ == '__main__':
-  main()
+    main()
